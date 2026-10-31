@@ -199,10 +199,15 @@ export function runChecks(site: SiteSnapshot): ReturnType<typeof buildReport> {
   );
 
   const hsts = page.headers["strict-transport-security"];
+  const browserMode = site.mode === "browser";
   checks.push(
     mk("headers", "technical", "Security headers",
-      hsts ? "pass" : "warn", "low",
-      hsts ? "Strict-Transport-Security present." : "No HSTS header returned.",
+      hsts ? "pass" : browserMode ? "info" : "warn", "low",
+      hsts
+        ? "Strict-Transport-Security present."
+        : browserMode
+          ? "Response headers aren't exposed to the browser, so HSTS can't be checked here."
+          : "No HSTS header returned.",
       "Security headers are a light trust signal and protect users from downgrade attacks.",
       "Send Strict-Transport-Security: max-age=31536000; includeSubDomains."),
   );
@@ -434,9 +439,11 @@ export function runChecks(site: SiteSnapshot): ReturnType<typeof buildReport> {
 
   checks.push(
     mk("ttfb", "performance", "Time to first byte",
-      page.ttfbMs <= 800 ? "pass" : page.ttfbMs <= 1800 ? "warn" : "fail",
+      page.ttfbMs <= 0 ? "info" : page.ttfbMs <= 800 ? "pass" : page.ttfbMs <= 1800 ? "warn" : "fail",
       "high",
-      `${page.ttfbMs} ms including network round trip.`,
+      page.ttfbMs <= 0
+        ? "Not measurable in browser mode — the proxy hides server latency."
+        : `${page.ttfbMs} ms including network round trip.`,
       "TTFB is the floor for LCP — nothing can render before the HTML arrives.",
       "Cache at the edge (CDN/ISR) and cut server work on the hot path."),
   );

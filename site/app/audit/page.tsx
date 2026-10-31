@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import AuditExperience from "@/components/audit/AuditExperience";
 
@@ -10,7 +11,9 @@ export const metadata: Metadata = {
 export default function AuditPage() {
   return (
     <main>
-      <AuditExperience />
+      <Suspense fallback={null}>
+        <AuditExperience />
+      </Suspense>
     </main>
   );
 }

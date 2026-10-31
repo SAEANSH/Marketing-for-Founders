@@ -1,8 +1,16 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import RepoCard from "@/components/RepoCard";
 import { getRepos, GitHubError, hasToken, type Repo } from "@/lib/github";
 
 const DEFAULT_OWNER = process.env.GITHUB_OWNER?.trim() || "vercel";
+
+/** A pasted website URL belongs in the audit, not in the GitHub owner field. */
+function looksLikeWebsite(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.includes(" ") || trimmed.includes("@")) return false;
+  return /^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(\/.*)?$/i.test(trimmed);
+}
 
 export const metadata = {
   title: "Browse repositories",
@@ -21,7 +29,11 @@ async function loadRepos(owner: string): Promise<{ repos: Repo[]; error: string 
 
 export default async function HomePage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const owner = (sp.owner || DEFAULT_OWNER).trim().replace(/^@/, "");
+  const raw = (sp.owner ?? "").trim();
+  if (raw && looksLikeWebsite(raw)) {
+    redirect(`/audit?url=${encodeURIComponent(raw)}&run=1`);
+  }
+  const owner = (raw || DEFAULT_OWNER).trim().replace(/^@/, "");
   const { repos, error } = await loadRepos(owner);
 
   const stars = repos.reduce((sum, r) => sum + r.stargazers_count, 0);
@@ -60,7 +72,7 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
             <input
               type="text"
               name="owner"
-              placeholder="GitHub username or org — e.g. vercel"
+              placeholder="GitHub username/org — or paste a website URL to audit it"
               defaultValue={owner}
               aria-label="GitHub username or organisation"
               spellCheck={false}

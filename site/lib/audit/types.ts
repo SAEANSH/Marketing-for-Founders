@@ -141,6 +141,7 @@ export type SiteSnapshot = {
   extraPages: { url: string; status: number; title: string | null; description: string | null }[];
   fetchedAt: string;
   demo: boolean;
+  mode?: "server" | "browser";
   notes: string[];
 };
 
@@ -169,6 +170,8 @@ export type Report = {
   };
   fetchedAt: string;
   demo: boolean;
+  /** Optional site screenshot (browser-mode audits attach one). */
+  screenshot?: string | null;
   notes: string[];
 };
 

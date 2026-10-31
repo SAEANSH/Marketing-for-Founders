@@ -53,6 +53,35 @@ function ScoreRing({ score, grade }: { score: number; grade: string }) {
   );
 }
 
+function SiteShot({ report }: { report: Report }) {
+  const shots = [
+    report.screenshot,
+    `https://image.thum.io/get/width/1200/crop/800/noanimate/${report.finalUrl}`,
+  ].filter(Boolean) as string[];
+  const [index, setIndex] = useState(0);
+
+  if (shots.length === 0 || index >= shots.length) return null;
+
+  return (
+    <figure className="site-shot">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={shots[index]}
+        alt={`Screenshot of ${report.hostname}`}
+        loading="lazy"
+        referrerPolicy="no-referrer"
+        onError={() => setIndex((i) => i + 1)}
+      />
+      <figcaption>
+        Live render of <strong>{report.hostname}</strong> ·{" "}
+        <a href={report.finalUrl} target="_blank" rel="noreferrer noopener">
+          open the site ↗
+        </a>
+      </figcaption>
+    </figure>
+  );
+}
+
 function CategoryCard({ cat }: { cat: Report["categories"][number] }) {
   const tone = cat.score >= 80 ? "good" : cat.score >= 60 ? "ok" : "bad";
   return (
@@ -158,7 +187,10 @@ export default function ReportView({ report, onRerun }: { report: Report; onReru
       <div className="report-top">
         <div>
           <p className="report-kicker">Audit complete · {new Date(report.fetchedAt).toLocaleString()}</p>
-          <h2 className="report-host">{report.hostname}</h2>
+          <h2 className="report-host">
+            {report.hostname}
+            {report.demo && <span className="chip" style={{ marginLeft: 10 }}>sample</span>}
+          </h2>
           {report.title && <p className="report-title">{report.title}</p>}
         </div>
         <div className="report-actions">
@@ -170,6 +202,16 @@ export default function ReportView({ report, onRerun }: { report: Report; onReru
           </button>
         </div>
       </div>
+
+      <SiteShot report={report} />
+
+      {report.notes.length > 0 && (
+        <ul className="report-notes">
+          {report.notes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      )}
 
       <div className="score-hero">
         <ScoreRing score={report.score} grade={report.grade} />

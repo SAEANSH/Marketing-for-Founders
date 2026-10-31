@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { Report } from "@/lib/audit/types";
 import ReportView from "./ReportView";
 
 type State =
   | { kind: "idle" }
-  | { kind: "loading"; url: string }
+  | { kind: "loading"; url: string; mode: "server" | "browser" }
   | { kind: "error"; message: string; reason?: string; url: string }
   | { kind: "done"; report: Report };
 
-const STEPS = [
+const SERVER_STEPS = [
   "Resolving the URL and checking it's safe to crawl…",
   "Fetching the homepage HTML…",
   "Reading robots.txt, sitemap.xml and llms.txt…",
@@ -20,18 +21,43 @@ const STEPS = [
   "Scoring against the claude-seo audit framework…",
 ];
 
+const BROWSER_STEPS = [
+  "Server can't reach the site from here — switching to your browser…",
+  "Fetching the page through a public CORS proxy…",
+  "Reading robots.txt, sitemap.xml and llms.txt…",
+  "Parsing the HTML in your browser…",
+  "Validating JSON-LD structured data…",
+  "Running 45 checks across 7 categories…",
+  "Scoring against the claude-seo audit framework…",
+];
+
 export default function AuditExperience() {
-  const [url, setUrl] = useState("");
+  const params = useSearchParams();
+  const initialUrl = params.get("url") ?? "";
+  const autoRun = params.get("run") === "1";
+
+  const [url, setUrl] = useState(initialUrl);
   const [state, setState] = useState<State>({ kind: "idle" });
   const [step, setStep] = useState(0);
+  const started = useRef(false);
 
-  async function run(target: string, demo = false, silentUrl?: string) {
+  async function runInBrowser(target: string) {
+    const { runBrowserAudit } = await import("@/lib/audit/browser");
+    const result = await runBrowserAudit(target);
+    if (result.ok) {
+      setState({ kind: "done", report: result.report });
+    } else {
+      setState({ kind: "error", message: result.error, reason: "network", url: target });
+    }
+  }
+
+  async function run(target: string, demo = false, displayUrl?: string) {
     const clean = target.trim();
     if (!clean && !demo) return;
 
-    setState({ kind: "loading", url: clean || "sample" });
+    setState({ kind: "loading", url: displayUrl ?? clean, mode: "server" });
     setStep(0);
-    const timer = setInterval(() => setStep((s) => Math.min(s + 1, STEPS.length - 1)), 700);
+    const timer = setInterval(() => setStep((s) => Math.min(s + 1, SERVER_STEPS.length - 1)), 700);
 
     try {
       const res = await fetch("/api/audit", {
@@ -39,31 +65,54 @@ export default function AuditExperience() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ url: clean || undefined, demo }),
       });
-
       const data = await res.json();
       clearInterval(timer);
 
-      if (!res.ok || !data.ok) {
-        setState({
-          kind: "error",
-          message: data.error ?? "The audit failed.",
-          reason: data.reason,
-          url: silentUrl ?? clean,
-        });
+      if (res.ok && data.ok) {
+        setState({ kind: "done", report: data.report as Report });
         return;
       }
 
-      setState({ kind: "done", report: data.report as Report });
-    } catch {
-      clearInterval(timer);
+      // A server-side network failure is expected in restricted hosting
+      // environments — retry the same audit from the visitor's browser.
+      const canRetryInBrowser = !demo && (data.reason === "network" || data.reason === "unknown");
+      if (canRetryInBrowser) {
+        setState({ kind: "loading", url: clean, mode: "browser" });
+        setStep(0);
+        const timer2 = setInterval(
+          () => setStep((s) => Math.min(s + 1, BROWSER_STEPS.length - 1)),
+          800,
+        );
+        try {
+          await runInBrowser(clean);
+        } finally {
+          clearInterval(timer2);
+        }
+        return;
+      }
+
       setState({
         kind: "error",
-        message: "Couldn't reach the audit service.",
-        reason: "network",
-        url: clean,
+        message: data.error ?? "The audit failed.",
+        reason: data.reason,
+        url: displayUrl ?? clean,
       });
+    } catch {
+      clearInterval(timer);
+      setState({ kind: "loading", url: clean, mode: "browser" });
+      await runInBrowser(clean);
     }
   }
+
+  useEffect(() => {
+    if (autoRun && initialUrl && !started.current) {
+      started.current = true;
+      void run(initialUrl);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun, initialUrl]);
+
+  const steps = state.kind === "loading" && state.mode === "browser" ? BROWSER_STEPS : SERVER_STEPS;
 
   return (
     <div className="audit-page">
@@ -129,11 +178,14 @@ export default function AuditExperience() {
         {state.kind === "loading" && (
           <div className="audit-loading">
             <div className="spinner" />
-            <div>
-              <p className="loading-title">Auditing {state.url}</p>
-              <p className="loading-step">{STEPS[step]}</p>
+            <div style={{ flex: 1 }}>
+              <p className="loading-title">
+                Auditing {state.url}
+                {state.mode === "browser" && <span className="chip" style={{ marginLeft: 8 }}>browser mode</span>}
+              </p>
+              <p className="loading-step">{steps[step]}</p>
               <div className="loading-bar">
-                <span style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
+                <span style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
               </div>
             </div>
           </div>
@@ -145,29 +197,23 @@ export default function AuditExperience() {
             <p>{state.message}</p>
             {state.reason === "network" && (
               <p className="muted">
-                This preview sandbox can only reach an allow-listed set of hosts, so live crawling of
-                arbitrary sites is blocked here. The same endpoint works normally once deployed —
-                meanwhile you can inspect a real report from the bundled sample.
+                The audit ran twice: once from this server and once from your browser through a
+                public proxy. If both failed, the site is most likely blocking automated requests
+                (Cloudflare, Vercel bot protection, or a WAF rule) or requires JavaScript to render.
               </p>
             )}
             <div className="audit-error-actions">
-              <button className="btn" type="button" onClick={() => run(url, false)}>
+              <button className="btn" type="button" onClick={() => run(url)}>
                 Try again
               </button>
-              <button
-                className="btn ghost"
-                type="button"
-                onClick={() => run(state.url, true, state.url)}
-              >
+              <button className="btn ghost" type="button" onClick={() => run(state.url, true, state.url)}>
                 Run sample audit
               </button>
             </div>
           </div>
         )}
 
-        {state.kind === "done" && (
-          <ReportView report={state.report} onRerun={(u) => run(u)} />
-        )}
+        {state.kind === "done" && <ReportView report={state.report} onRerun={(u) => run(u)} />}
 
         {state.kind === "idle" && (
           <div className="audit-idle">
