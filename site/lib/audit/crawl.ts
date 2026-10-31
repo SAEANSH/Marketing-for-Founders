@@ -309,6 +309,16 @@ export function parsePage(fetched: Fetched): PageSnapshot {
 /* Site crawl                                                          */
 /* ------------------------------------------------------------------ */
 
+/** Fetch and parse one page (used by the ranking check). */
+export async function fetchPage(rawUrl: string): Promise<PageSnapshot> {
+  const url = await assertSafeUrl(rawUrl);
+  const fetched = await fetchWithRedirects(url);
+  if (fetched.status >= 400) {
+    throw new AuditError("http", `The page answered with HTTP ${fetched.status}.`);
+  }
+  return parsePage(fetched);
+}
+
 export async function crawlSite(rawUrl: string): Promise<SiteSnapshot> {
   const url = await assertSafeUrl(rawUrl);
   const notes: string[] = [];

@@ -29,6 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </span>
             </Link>
             <div className="header-spacer" />
+            <Link className="header-link" href="/rank">
+              Ranking check
+            </Link>
             <Link className="header-link" href="/audit">
               Free SEO audit
             </Link>

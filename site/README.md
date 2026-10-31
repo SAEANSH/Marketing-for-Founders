@@ -28,6 +28,20 @@ Environment (copy `.env.example` → `.env.local`):
 | `GITHUB_REVALIDATE` | Cache seconds before GitHub is re-read (default 300) |
 | `NEXT_PUBLIC_SITE_NAME` | Brand name in the header/title |
 
+## The ranking check
+
+`POST /api/rank` with `{ "url": "https://site.com/page", "keyword": "my keyword" }`.
+
+It fetches the page, pulls the live top 30 results for the keyword, finds the target domain's
+position, and scores 12 on-page keyword factors (title, meta description, H1, first 100 words,
+URL slug, density, subheadings, alt text, length, internal anchors, schema).
+
+Results come from DuckDuckGo's public HTML results. Google's ordering differs, and scraping
+search engines at scale is fragile — for production traffic swap `lib/rank/serp.ts` for a paid
+SERP API (DataForSEO, SerpApi, Seobility). The rest of the report doesn't change.
+
+`{ "demo": true }` returns a bundled sample so the UI can be demoed without network access.
+
 ## The audit engine
 
 `POST /api/audit` with `{ "url": "https://example.com" }`.

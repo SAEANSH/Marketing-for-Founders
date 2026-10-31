@@ -37,7 +37,7 @@ const PROXIES: Proxy[] = [
 
 let preferred = 0;
 
-async function throughProxy(url: string, timeoutMs = 14_000): Promise<string | null> {
+export async function throughProxy(url: string, timeoutMs = 14_000): Promise<string | null> {
   const order = [preferred, ...PROXIES.map((_, i) => i).filter((i) => i !== preferred)];
   for (const index of order) {
     const proxy = PROXIES[index];

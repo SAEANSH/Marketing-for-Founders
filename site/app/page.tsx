@@ -58,6 +58,9 @@ export default async function HomePage({ searchParams }: { searchParams: SearchP
             <Link className="btn btn-lg" href="/audit">
               Run a free SEO audit →
             </Link>
+            <Link className="btn ghost btn-lg" href="/rank">
+              Check a keyword ranking
+            </Link>
             <a
               className="btn ghost btn-lg"
               href="https://github.com/AgriciDaniel/claude-seo"
