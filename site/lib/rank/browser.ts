@@ -65,7 +65,17 @@ export function parseSerpInBrowser(html: string): SerpResult[] {
 
 export type BrowserRankResult = { ok: true; report: RankReport } | { ok: false; error: string };
 
-export async function runBrowserRank(input: string, keyword: string): Promise<BrowserRankResult> {
+const REGIONS: Record<string, string> = {
+  in: "in-en", us: "us-en", gb: "uk-en", au: "au-en", ca: "ca-en",
+  de: "de-de", fr: "fr-fr", es: "es-es", it: "it-it", br: "br-pt",
+  nl: "nl-nl", ae: "xa-ar",
+};
+
+export async function runBrowserRank(
+  input: string,
+  keyword: string,
+  options: { device?: string; country?: string } = {},
+): Promise<BrowserRankResult> {
   const target = /^https?:\/\//i.test(input.trim()) ? input.trim() : `https://${input.trim()}`;
 
   const html = await throughProxy(target);
@@ -81,8 +91,9 @@ export async function runBrowserRank(input: string, keyword: string): Promise<Br
   const targetHost = hostOf(target);
 
   let serp: SerpResult[] | null = null;
+  const region = options.country && REGIONS[options.country] ? `&kl=${REGIONS[options.country]}` : "";
   const serpHtml = await throughProxy(
-    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(keyword)}`,
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(keyword)}${region}`,
     12_000,
   );
   if (serpHtml) {
@@ -114,6 +125,9 @@ export async function runBrowserRank(input: string, keyword: string): Promise<Br
         images: page.images.length,
         headings: page.headings.length,
       },
+      demo: false,
+      device: options.device === "mobile" ? "mobile" : "desktop",
+      country: options.country ?? "",
       mode: "browser",
       fetchedAt: new Date().toISOString(),
       notes: [

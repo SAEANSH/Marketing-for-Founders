@@ -37,6 +37,9 @@ export type RankReport = {
     headings: number;
   };
   mode: "server" | "browser";
+  demo?: boolean;
+  device?: string;
+  country?: string;
   fetchedAt: string;
   notes: string[];
 };

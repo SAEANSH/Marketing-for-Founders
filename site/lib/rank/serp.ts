@@ -62,18 +62,41 @@ export function parseSerpHtml(html: string): SerpResult[] {
   return results.slice(0, 30);
 }
 
+export type SerpOptions = { device?: string; country?: string };
+
+const MOBILE_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
+
+/** DuckDuckGo regional codes — `kl` uses <region>-<lang>. */
+const REGIONS: Record<string, string> = {
+  in: "in-en",
+  us: "us-en",
+  gb: "uk-en",
+  au: "au-en",
+  ca: "ca-en",
+  de: "de-de",
+  fr: "fr-fr",
+  es: "es-es",
+  it: "it-it",
+  br: "br-pt",
+  nl: "nl-nl",
+  ae: "xa-ar",
+};
+
 /** Server-side SERP lookup. Returns null when every engine refuses us. */
-export async function fetchSerp(keyword: string): Promise<SerpResult[] | null> {
+export async function fetchSerp(keyword: string, options: SerpOptions = {}): Promise<SerpResult[] | null> {
+  const region = options.country && REGIONS[options.country] ? `&kl=${REGIONS[options.country]}` : "";
+  const ua = options.device === "mobile" ? MOBILE_UA : UA;
   const endpoints = [
-    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(keyword)}`,
-    `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(keyword)}`,
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(keyword)}${region}`,
+    `https://lite.duckduckgo.com/lite/?q=${encodeURIComponent(keyword)}${region}`,
   ];
 
   for (const endpoint of endpoints) {
     try {
       const res = await fetch(endpoint, {
         headers: {
-          "user-agent": UA,
+          "user-agent": ua,
           accept: "text/html,application/xhtml+xml",
           "accept-language": "en-US,en;q=0.9",
         },

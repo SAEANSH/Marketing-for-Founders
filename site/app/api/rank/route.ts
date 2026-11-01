@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  let body: { url?: string; keyword?: string; demo?: boolean };
+  let body: { url?: string; keyword?: string; demo?: boolean; device?: string; country?: string };
   try {
     body = await request.json();
   } catch {
@@ -68,6 +68,9 @@ export async function POST(request: Request) {
           headings: page.headings.length,
         },
         mode: "server",
+        demo: true,
+        device: body.device === "mobile" ? "mobile" : "desktop",
+        country: body.country ?? "",
         fetchedAt: new Date().toISOString(),
         notes: [
           "Sample check: the page is the bundled Sco Staking fixture and the result list is illustrative.",
@@ -79,7 +82,7 @@ export async function POST(request: Request) {
 
   try {
     const page = await fetchPage(url);
-    const serp = await fetchSerp(keyword);
+    const serp = await fetchSerp(keyword, { device: body.device, country: body.country });
     const checks = analyzeKeyword(page, keyword);
     const targetHost = hostOf(page.finalUrl);
     const decorated = serp ? decorateSerp(serp, targetHost) : { serp: [], position: null };
@@ -106,6 +109,9 @@ export async function POST(request: Request) {
           headings: page.headings.length,
         },
         mode: "server",
+        demo: false,
+        device: body.device === "mobile" ? "mobile" : "desktop",
+        country: body.country ?? "",
         fetchedAt: new Date().toISOString(),
         notes: [
           "Positions are read from DuckDuckGo's public results page; Google's ordering can differ.",
